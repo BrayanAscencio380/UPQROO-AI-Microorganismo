@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reconocimiento de Imágenes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+        }
+        .contenedor {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 450px;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            margin: 15px 0;
+            background-color: white;
+        }
+        #resultadoPrediccion {
+            font-size: 20px;
+            font-weight: bold;
+            margin-top: 10px;
+            white-space: pre-line;
+        }
+        button, label {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 10px;
+            display: inline-block;
+        }
+        button:hover, label:hover {
+            background-color: #45a049;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .nota {
+            font-size: 14px;
+            color: #555;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="contenedor">
+        <h2>Reconocimiento de Imágenes</h2>
+        <p class="nota">Nota: La imagen debe ser cuadrada para un mejor reconocimiento.</p>
+        <input type="file" id="cargarImagen" accept="image/*">
+        <canvas id="visorImagen" width="400" height="400"></canvas>
+        <br>
+        <label for="cargarImagen">Subir Imagen</label>
+        <button id="botonPredecir">Predecir</button>
+        <div id="resultadoPrediccion"></div>
+    </div>
+    
+    <script>
+        const canvas = document.getElementById('visorImagen');
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        document.getElementById('cargarImagen').addEventListener('change', manejarCargaImagen);
+
+        function manejarCargaImagen(evento) {
+            const archivo = evento.target.files[0];
+            if (!archivo) return;
+
+            const lector = new FileReader();
+            lector.onload = function (e) {
+                const img = new Image();
+                img.onload = function () {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                };
+                img.src = e.target.result;
+            };
+            lector.readAsDataURL(archivo);
+        }
+
+        async function predecirImagen() {
+            const imagenBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+            const formData = new FormData();
+            formData.append('image', imagenBlob, 'imagen.png');
+
+            try {
+                const respuesta = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+                const datos = await respuesta.json();
+                document.getElementById('resultadoPrediccion').innerText = 
+                    `Etiqueta: ${datos.etiqueta_predicha}\nConfianza: ${(datos.probabilidad * 100).toFixed(2)}%`;
+            } catch (error) {
+                console.error('Error al predecir la imagen:', error);
+                document.getElementById('resultadoPrediccion').innerText = "Error al procesar la imagen.";
+            }
+        }
+
+        document.getElementById('botonPredecir').addEventListener('click', predecirImagen);
+    </script>
+</body>
+</html>
